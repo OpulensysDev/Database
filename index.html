@@ -3,65 +3,154 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Hospedagem de Imagens</title>
+    <title>Sistema de Hospedagem de Imagens com Firebase Realtime</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #f0f0f0;
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #f5f5f5;
+            --text-color: #333;
         }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: var(--secondary-color);
+            color: var(--text-color);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
         h1 {
             text-align: center;
-            color: #333;
+            color: var(--primary-color);
         }
+
         #upload-form {
             display: flex;
             flex-direction: column;
             gap: 10px;
-            margin-bottom: 20px;
+            max-width: 400px;
+            margin: 0 auto 20px;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
+
+        #upload-form input, #upload-form button {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        #upload-form button {
+            background-color: var(--primary-color);
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        #upload-form button:hover {
+            background-color: #3a7bc8;
+        }
+
         #image-gallery {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
             gap: 20px;
         }
+
         .image-container {
             background-color: white;
             border-radius: 8px;
             overflow: hidden;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s;
         }
+
+        .image-container:hover {
+            transform: translateY(-5px);
+        }
+
         .image-container img {
             width: 100%;
             height: 200px;
             object-fit: cover;
         }
+
         .image-info {
-            padding: 10px;
+            padding: 15px;
         }
+
         .image-info h3 {
-            margin: 0;
-            font-size: 16px;
+            margin: 0 0 10px;
+            font-size: 18px;
+            color: var(--primary-color);
         }
+
         .image-info p {
-            margin: 5px 0 0;
+            margin: 5px 0;
             font-size: 14px;
             color: #666;
+        }
+
+        .image-actions {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+        }
+
+        .image-actions button {
+            padding: 5px 10px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .image-actions button:hover {
+            background-color: #3a7bc8;
         }
     </style>
 </head>
 <body>
-    <h1>Sistema de Hospedagem de Imagens</h1>
-    <form id="upload-form">
-        <input type="file" id="image-input" accept="image/*" required>
-        <input type="text" id="image-title" placeholder="Título da imagem" required>
-        <button type="submit">Enviar Imagem</button>
-    </form>
-    <div id="image-gallery"></div>
+    <div class="container">
+        <h1>Sistema de Hospedagem de Imagens com Firebase Realtime</h1>
+        <form id="upload-form">
+            <input type="file" id="image-input" accept="image/*" required>
+            <input type="text" id="image-title" placeholder="Título da imagem" required>
+            <button type="submit">Enviar Imagem</button>
+        </form>
+        <div id="image-gallery"></div>
+    </div>
 
-    <script>
+    <script type="module">
+        // Import the functions you need from the SDKs you need
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+        import { getDatabase, ref, push, onChildAdded, remove } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
+
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyB0Je06Cc3Tzq6fqpDICDt0aGXqRzzhmhI",
+            authDomain: "opulensys-1150c.firebaseapp.com",
+            databaseURL: "https://opulensys-1150c-default-rtdb.firebaseio.com",
+            projectId: "opulensys-1150c",
+            storageBucket: "opulensys-1150c.firebasestorage.app",
+            messagingSenderId: "566236902104",
+            appId: "1:566236902104:web:76a5cc9d203877989d5dad",
+            measurementId: "G-FD893MSTS3"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
         class ImageHostingSystem {
             constructor() {
                 this.form = document.getElementById('upload-form');
@@ -73,59 +162,91 @@
                 this.loadImages();
             }
 
-            handleSubmit(event) {
+            async handleSubmit(event) {
                 event.preventDefault();
                 const file = this.imageInput.files[0];
                 const title = this.titleInput.value;
 
                 if (file && title) {
-                    this.addImage(file, title);
-                    this.form.reset();
+                    try {
+                        const imageData = await this.convertToBase64(file);
+                        await this.saveImage(title, imageData);
+                        this.form.reset();
+                    } catch (error) {
+                        console.error("Error uploading image:", error);
+                        alert("Erro ao enviar a imagem. Por favor, tente novamente.");
+                    }
                 }
             }
 
-            addImage(file, title) {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    const imageData = {
-                        id: Date.now(),
-                        title: title,
-                        src: e.target.result,
-                        date: new Date().toLocaleString()
-                    };
-                    this.saveImage(imageData);
-                    this.displayImage(imageData);
+            convertToBase64(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = error => reject(error);
+                    reader.readAsDataURL(file);
+                });
+            }
+
+            async saveImage(title, imageData) {
+                const imageInfo = {
+                    title: title,
+                    data: imageData,
+                    timestamp: Date.now()
                 };
-                reader.readAsDataURL(file);
-            }
-
-            saveImage(imageData) {
-                const images = this.getStoredImages();
-                images.push(imageData);
-                localStorage.setItem('hostedImages', JSON.stringify(images));
-            }
-
-            getStoredImages() {
-                const images = localStorage.getItem('hostedImages');
-                return images ? JSON.parse(images) : [];
+                await push(ref(db, 'images'), imageInfo);
             }
 
             loadImages() {
-                const images = this.getStoredImages();
-                images.forEach(image => this.displayImage(image));
+                const imagesRef = ref(db, 'images');
+                onChildAdded(imagesRef, (snapshot) => {
+                    const imageData = snapshot.val();
+                    imageData.id = snapshot.key;
+                    this.displayImage(imageData);
+                });
             }
 
             displayImage(imageData) {
                 const container = document.createElement('div');
                 container.className = 'image-container';
                 container.innerHTML = `
-                    <img src="${imageData.src}" alt="${imageData.title}">
+                    <img src="${imageData.data}" alt="${imageData.title}">
                     <div class="image-info">
                         <h3>${imageData.title}</h3>
-                        <p>Enviado em: ${imageData.date}</p>
+                        <p>Enviado em: ${new Date(imageData.timestamp).toLocaleString()}</p>
+                        <div class="image-actions">
+                            <button class="download-btn">Baixar</button>
+                            <button class="delete-btn">Excluir</button>
+                        </div>
                     </div>
                 `;
+
+                const downloadBtn = container.querySelector('.download-btn');
+                downloadBtn.addEventListener('click', () => this.downloadImage(imageData));
+
+                const deleteBtn = container.querySelector('.delete-btn');
+                deleteBtn.addEventListener('click', () => this.deleteImage(imageData.id, container));
+
                 this.gallery.prepend(container);
+            }
+
+            downloadImage(imageData) {
+                const link = document.createElement('a');
+                link.href = imageData.data;
+                link.download = `${imageData.title}.jpg`;
+                link.click();
+            }
+
+            async deleteImage(imageId, container) {
+                if (confirm("Tem certeza que deseja excluir esta imagem?")) {
+                    try {
+                        await remove(ref(db, `images/${imageId}`));
+                        container.remove();
+                    } catch (error) {
+                        console.error("Error deleting image:", error);
+                        alert("Erro ao excluir a imagem. Por favor, tente novamente.");
+                    }
+                }
             }
         }
 
