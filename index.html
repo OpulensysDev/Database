@@ -3,45 +3,133 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Hospedagem de Arquivos</title>
+    <title>Sistema de Hospedagem de Imagens</title>
     <style>
         body {
             font-family: Arial, sans-serif;
             max-width: 800px;
             margin: 0 auto;
             padding: 20px;
+            background-color: #f0f0f0;
         }
         h1 {
+            text-align: center;
             color: #333;
         }
-        #uploadForm {
+        #upload-form {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
             margin-bottom: 20px;
         }
-        #fileList {
-            list-style-type: none;
-            padding: 0;
+        #image-gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
         }
-        #fileList li {
-            margin-bottom: 10px;
+        .image-container {
+            background-color: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
-        .file-link {
-            color: #0066cc;
-            text-decoration: none;
+        .image-container img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
         }
-        .file-link:hover {
-            text-decoration: underline;
+        .image-info {
+            padding: 10px;
+        }
+        .image-info h3 {
+            margin: 0;
+            font-size: 16px;
+        }
+        .image-info p {
+            margin: 5px 0 0;
+            font-size: 14px;
+            color: #666;
         }
     </style>
 </head>
 <body>
-    <h1>Sistema de Hospedagem de Arquivos</h1>
-    <form id="uploadForm">
-        <input type="file" id="fileInput" multiple>
-        <button type="submit">Enviar Arquivo(s)</button>
+    <h1>Sistema de Hospedagem de Imagens</h1>
+    <form id="upload-form">
+        <input type="file" id="image-input" accept="image/*" required>
+        <input type="text" id="image-title" placeholder="Título da imagem" required>
+        <button type="submit">Enviar Imagem</button>
     </form>
-    <h2>Arquivos Hospedados:</h2>
-    <ul id="fileList"></ul>
+    <div id="image-gallery"></div>
 
-    <script src="script.js"></script>
+    <script>
+        class ImageHostingSystem {
+            constructor() {
+                this.form = document.getElementById('upload-form');
+                this.gallery = document.getElementById('image-gallery');
+                this.imageInput = document.getElementById('image-input');
+                this.titleInput = document.getElementById('image-title');
+
+                this.form.addEventListener('submit', this.handleSubmit.bind(this));
+                this.loadImages();
+            }
+
+            handleSubmit(event) {
+                event.preventDefault();
+                const file = this.imageInput.files[0];
+                const title = this.titleInput.value;
+
+                if (file && title) {
+                    this.addImage(file, title);
+                    this.form.reset();
+                }
+            }
+
+            addImage(file, title) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const imageData = {
+                        id: Date.now(),
+                        title: title,
+                        src: e.target.result,
+                        date: new Date().toLocaleString()
+                    };
+                    this.saveImage(imageData);
+                    this.displayImage(imageData);
+                };
+                reader.readAsDataURL(file);
+            }
+
+            saveImage(imageData) {
+                const images = this.getStoredImages();
+                images.push(imageData);
+                localStorage.setItem('hostedImages', JSON.stringify(images));
+            }
+
+            getStoredImages() {
+                const images = localStorage.getItem('hostedImages');
+                return images ? JSON.parse(images) : [];
+            }
+
+            loadImages() {
+                const images = this.getStoredImages();
+                images.forEach(image => this.displayImage(image));
+            }
+
+            displayImage(imageData) {
+                const container = document.createElement('div');
+                container.className = 'image-container';
+                container.innerHTML = `
+                    <img src="${imageData.src}" alt="${imageData.title}">
+                    <div class="image-info">
+                        <h3>${imageData.title}</h3>
+                        <p>Enviado em: ${imageData.date}</p>
+                    </div>
+                `;
+                this.gallery.prepend(container);
+            }
+        }
+
+        new ImageHostingSystem();
+    </script>
 </body>
 </html>
